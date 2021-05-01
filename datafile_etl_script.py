@@ -44,6 +44,7 @@ def insert_table(conn, table_name, to_db):
     :return:
     """
     try:
+        e = None
         c = conn.cursor()
         sql_insert_table = f"""INSERT INTO Table_{table_name}
         (Customer_Name, Customer_ID, Customer_Open_Date, Last_Consulted_Date, Vaccination_Type, Doctor_Consulted, State, Country, Date_of_Birth, Active_Customer) VALUES
@@ -51,7 +52,8 @@ def insert_table(conn, table_name, to_db):
         c.execute(sql_insert_table, to_db)
         conn.commit()
     except Error as e:
-        print(e)
+        return e
+
 def scrub(table_name):
     """ create a table names only in alphanumerics
     scrubing off characters that may be misued for sql injection
@@ -77,14 +79,20 @@ def main():
     with open(datafile, 'r') as file:
         reader = list(csv.reader(file,  delimiter='|'))[1:]
         row_counter = 0
+        row_loaded = 0
         for row in reader:
-            row_counter += 1
             try:
+                row_counter += 1
                 table_name = scrub(country_with_code[row[9]])
+                error = insert_table(conn, table_name, row[2:])
+                if not error:
+                    row_loaded += 1
+                else:
+                  print(f"Row {row_counter} not loaded because of database error: {error}")
             except KeyError:
-                print(f"Country code not available for {row[9]}")
-                continue
-            insert_table(conn, table_name, row[2:12])
-    print(f"Processed {row_counter} data rows of {datafile} file")
+                print(f"Row {row_counter} not loaded because Country code not available for {row[9]}")
+            except IndexError as e:
+                print(f"Row {row_counter} not loaded with error: {e}, maybe row is empty or index is incorrect")
+    print(f"Loaded {row_loaded} rows out of {row_counter} data rows of {datafile} file")
 if __name__ == '__main__':
     main()
